@@ -108,7 +108,22 @@ contract AtomicSwapSettlement is OwnableUpgradeable {
      * @param order The order details
      */
     function _executeTransfers(Order memory order) internal returns (bool) {
-        // Transfer maker token
+        // Check compliance for both sides before executing any transfers
+        if (_isERC3643(order.makerToken)) {
+            require(
+                _checkReg506cCompliance(order.makerToken, order.maker, msg.sender, order.makerAmount),
+                "Maker fails Reg506c compliance"
+            );
+        }
+        
+        if (_isERC3643(order.takerToken)) {
+            require(
+                _checkReg506cCompliance(order.takerToken, msg.sender, order.maker, order.takerAmount),
+                "Taker fails Reg506c compliance"
+            );
+        }
+
+        // Execute transfers only after both sides pass compliance
         if (_isERC3643(order.makerToken)) {
             require(
                 _executeERC3643Transfer(order.makerToken, order.maker, msg.sender, order.makerAmount),
@@ -121,7 +136,6 @@ contract AtomicSwapSettlement is OwnableUpgradeable {
             );
         }
 
-        // Transfer taker token
         if (_isERC3643(order.takerToken)) {
             require(
                 _executeERC3643Transfer(order.takerToken, msg.sender, order.maker, order.takerAmount),
@@ -146,13 +160,7 @@ contract AtomicSwapSettlement is OwnableUpgradeable {
         address to,
         uint256 amount
     ) internal returns (bool) {
-        // Check Reg506c compliance if applicable
-        require(
-            _checkReg506cCompliance(token, from, to, amount),
-            "Transfer violates Reg506c compliance"
-        );
-
-        // Existing transfer agent check
+        // Only check transfer agent approval here since compliance was checked earlier
         if (_requiresTransferApproval(token)) {
             require(
                 AgentRole(token).isAgent(msg.sender),
