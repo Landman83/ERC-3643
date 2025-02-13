@@ -20,16 +20,26 @@ contract IdentityRegistryStorage is IIdentityRegistryStorage, AgentRoleUpgradeab
     function addIdentityToStorage(
         address _userAddress,
         IIdentity _identity,
-        uint16 _country
+        uint16 _country,
+        bool _isAccredited,
+        bool _isQIB,
+        uint256 _accreditationExpiry
     ) external override onlyAgent {
         require(
             _userAddress != address(0)
             && address(_identity) != address(0)
         , "invalid argument - zero address");
         require(address(_identities[_userAddress].identityContract) == address(0), "address stored already");
+        require(_accreditationExpiry > block.timestamp, "invalid expiry time");
         _identities[_userAddress].identityContract = _identity;
         _identities[_userAddress].investorCountry = _country;
+        
+        _accreditationStatus[_userAddress].isAccredited = _isAccredited;
+        _accreditationStatus[_userAddress].isQIB = _isQIB;
+        _accreditationStatus[_userAddress].expiryTime = _accreditationExpiry;
+
         emit IdentityStored(_userAddress, _identity);
+        emit AccreditationStored(_userAddress, _isAccredited, _isQIB, _accreditationExpiry);
     }
 
     /**
@@ -64,7 +74,9 @@ contract IdentityRegistryStorage is IIdentityRegistryStorage, AgentRoleUpgradeab
         require(address(_identities[_userAddress].identityContract) != address(0), "address not stored yet");
         IIdentity oldIdentity = _identities[_userAddress].identityContract;
         delete _identities[_userAddress];
+        delete _accreditationStatus[_userAddress];
         emit IdentityUnstored(_userAddress, oldIdentity);
+        emit AccreditationRemoved(_userAddress);
     }
 
     /**
@@ -115,5 +127,47 @@ contract IdentityRegistryStorage is IIdentityRegistryStorage, AgentRoleUpgradeab
      */
     function storedInvestorCountry(address _userAddress) external view override returns (uint16) {
         return _identities[_userAddress].investorCountry;
+    }
+
+    /**
+     * @dev See {IIdentityRegistryStorage-modifyStoredAccreditation}.
+     */
+    function modifyStoredAccreditation(
+        address _userAddress,
+        bool _isAccredited,
+        bool _isQIB,
+        uint256 _expiryTime
+    ) external override onlyAgent {
+        require(_userAddress != address(0), "invalid argument - zero address");
+        require(_expiryTime > block.timestamp, "invalid expiry time");
+        
+        _accreditationStatus[_userAddress].isAccredited = _isAccredited;
+        _accreditationStatus[_userAddress].isQIB = _isQIB;
+        _accreditationStatus[_userAddress].expiryTime = _expiryTime;
+        
+        emit AccreditationStored(_userAddress, _isAccredited, _isQIB, _expiryTime);
+    }
+
+    /**
+     * @dev See {IIdentityRegistryStorage-removeStoredAccreditation}.
+     */
+    function removeStoredAccreditation(address _userAddress) external override onlyAgent {
+        require(_userAddress != address(0), "invalid argument - zero address");
+        
+        delete _accreditationStatus[_userAddress];
+        
+        emit AccreditationRemoved(_userAddress);
+    }
+
+    /**
+     * @dev See {IIdentityRegistryStorage-storedAccreditation}.
+     */
+    function storedAccreditation(address _userAddress) external view override returns (
+        bool isAccredited,
+        bool isQIB,
+        uint256 expiryTime
+    ) {
+        AccreditationStatus memory status = _accreditationStatus[_userAddress];
+        return (status.isAccredited, status.isQIB, status.expiryTime);
     }
 }

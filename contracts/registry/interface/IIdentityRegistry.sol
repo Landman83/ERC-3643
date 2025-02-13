@@ -1,64 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-//
-//                                             :+#####%%%%%%%%%%%%%%+
-//                                         .-*@@@%+.:+%@@@@@%%#***%@@%=
-//                                     :=*%@@@#=.      :#@@%       *@@@%=
-//                       .-+*%@%*-.:+%@@@@@@+.     -*+:  .=#.       :%@@@%-
-//                   :=*@@@@%%@@@@@@@@@%@@@-   .=#@@@%@%=             =@@@@#.
-//             -=+#%@@%#*=:.  :%@@@@%.   -*@@#*@@@@@@@#=:-              *@@@@+
-//            =@@%=:.     :=:   *@@@@@%#-   =%*%@@@@#+-.        =+       :%@@@%-
-//           -@@%.     .+@@@     =+=-.         @@#-           +@@@%-       =@@@@%:
-//          :@@@.    .+@@#%:                   :    .=*=-::.-%@@@+*@@=       +@@@@#.
-//          %@@:    +@%%*                         =%@@@@@@@@@@@#.  .*@%-       +@@@@*.
-//         #@@=                                .+@@@@%:=*@@@@@-      :%@%:      .*@@@@+
-//        *@@*                                +@@@#-@@%-:%@@*          +@@#.      :%@@@@-
-//       -@@%           .:-=++*##%%%@@@@@@@@@@@@*. :@+.@@@%:            .#@@+       =@@@@#:
-//      .@@@*-+*#%%%@@@@@@@@@@@@@@@@%%#**@@%@@@.   *@=*@@#                :#@%=      .#@@@@#-
-//      -%@@@@@@@@@@@@@@@*+==-:-@@@=    *@# .#@*-=*@@@@%=                 -%@@@*       =@@@@@%-
-//         -+%@@@#.   %@%%=   -@@:+@: -@@*    *@@*-::                   -%@@%=.         .*@@@@@#
-//            *@@@*  +@* *@@##@@-  #@*@@+    -@@=          .         :+@@@#:           .-+@@@%+-
-//             +@@@%*@@:..=@@@@*   .@@@*   .#@#.       .=+-       .=%@@@*.         :+#@@@@*=:
-//              =@@@@%@@@@@@@@@@@@@@@@@@@@@@%-      :+#*.       :*@@@%=.       .=#@@@@%+:
-//               .%@@=                 .....    .=#@@+.       .#@@@*:       -*%@@@@%+.
-//                 +@@#+===---:::...         .=%@@*-         +@@@+.      -*@@@@@%+.
-//                  -@@@@@@@@@@@@@@@@@@@@@@%@@@@=          -@@@+      -#@@@@@#=.
-//                    ..:::---===+++***###%%%@@@#-       .#@@+     -*@@@@@#=.
-//                                           @@@@@@+.   +@@*.   .+@@@@@%=.
-//                                          -@@@@@=   =@@%:   -#@@@@%+.
-//                                          +@@@@@. =@@@=  .+@@@@@*:
-//                                          #@@@@#:%@@#. :*@@@@#-
-//                                          @@@@@%@@@= :#@@@@+.
-//                                         :@@@@@@@#.:#@@@%-
-//                                         +@@@@@@-.*@@@*:
-//                                         #@@@@#.=@@@+.
-//                                         @@@@+-%@%=
-//                                        :@@@#%@%=
-//                                        +@@@@%-
-//                                        :#%%=
-//
-/**
- *     NOTICE
- *
- *     The T-REX software is licensed under a proprietary license or the GPL v.3.
- *     If you choose to receive it under the GPL v.3 license, the following applies:
- *     T-REX is a suite of smart contracts implementing the ERC-3643 standard and
- *     developed by Tokeny to manage and transfer financial assets on EVM blockchains
- *
- *     Copyright (C) 2023, Tokeny sàrl.
- *
- *     This program is free software: you can redistribute it and/or modify
- *     it under the terms of the GNU General Public License as published by
- *     the Free Software Foundation, either version 3 of the License, or
- *     (at your option) any later version.
- *
- *     This program is distributed in the hope that it will be useful,
- *     but WITHOUT ANY WARRANTY; without even the implied warranty of
- *     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *     GNU General Public License for more details.
- *
- *     You should have received a copy of the GNU General Public License
- *     along with this program.  If not, see <https://www.gnu.org/licenses/>.
- */
+
 
 pragma solidity 0.8.17;
 
@@ -122,6 +63,27 @@ interface IIdentityRegistry {
      *  `country` is the numeric code (ISO 3166-1) of the new country
      */
     event CountryUpdated(address indexed investorAddress, uint16 indexed country);
+
+    /**
+     * @dev Emitted when accreditation status is set or updated
+     * @param investorAddress The address of the investor
+     * @param isAccredited Whether the investor is an Accredited Investor
+     * @param isQIB Whether the investor is a Qualified Institutional Buyer
+     * @param expiryTime When the accreditation expires
+     */
+    event AccreditationStatusSet(
+        address indexed investorAddress,
+        bool isAccredited,
+        bool isQIB,
+        uint256 expiryTime
+    );
+
+    /**
+     * @dev Emitted when accreditation is revoked
+     * @param investorAddress The address of the investor
+     * @param reason The reason for revocation
+     */
+    event AccreditationRevoked(address indexed investorAddress, string reason);
 
     /**
      *  @dev Register an identity contract corresponding to a user address.
@@ -252,4 +214,77 @@ interface IIdentityRegistry {
      *  @dev Returns the ClaimTopicsRegistry linked to the current IdentityRegistry.
      */
     function topicsRegistry() external view returns (IClaimTopicsRegistry);
+
+    /**
+     * @dev Register an identity contract with accreditation status
+     * @param _userAddress The address of the user
+     * @param _identity The address of the user's identity contract
+     * @param _country The country of the investor
+     * @param _isAccredited Whether the investor is an Accredited Investor
+     * @param _isQualifiedIB Whether the investor is a Qualified Institutional Buyer
+     * @param _accreditationExpiry When the accreditation expires
+     */
+    function registerIdentity(
+        address _userAddress,
+        IIdentity _identity,
+        uint16 _country,
+        bool _isAccredited,
+        bool _isQualifiedIB,
+        uint256 _accreditationExpiry
+    ) external;
+
+    /**
+     * @dev Sets or updates the accreditation status
+     * @param _userAddress The address of the investor
+     * @param _isAccredited Whether the investor is an Accredited Investor
+     * @param _isQualifiedIB Whether the investor is a Qualified Institutional Buyer
+     * @param _expiryTime When the accreditation expires
+     */
+    function setAccreditationStatus(
+        address _userAddress,
+        bool _isAccredited,
+        bool _isQualifiedIB,
+        uint256 _expiryTime
+    ) external;
+
+    /**
+     * @dev Revokes accreditation status
+     * @param _userAddress The address of the investor
+     * @param _reason The reason for revocation
+     */
+    function revokeAccreditation(
+        address _userAddress,
+        string calldata _reason
+    ) external;
+
+    /**
+     * @dev Checks accreditation status of an address
+     * @param _userAddress The address to check
+     * @return isAccredited Whether the address is an AI
+     * @return isQIB Whether the address is a QIB
+     * @return isValid Whether the accreditation is still valid (not expired)
+     */
+    function checkAccreditation(address _userAddress) external view returns (
+        bool isAccredited,
+        bool isQIB,
+        bool isValid
+    );
+
+    /**
+     * @dev Batch register identities with accreditation status
+     * @param _userAddresses The addresses of the users
+     * @param _identities The addresses of the corresponding identity contracts
+     * @param _countries The countries of the corresponding investors
+     * @param _isAccredited Array of accredited investor status
+     * @param _isQualifiedIB Array of QIB status
+     * @param _accreditationExpiry Array of expiry timestamps
+     */
+    function batchRegisterIdentity(
+        address[] calldata _userAddresses,
+        IIdentity[] calldata _identities,
+        uint16[] calldata _countries,
+        bool[] calldata _isAccredited,
+        bool[] calldata _isQualifiedIB,
+        uint256[] calldata _accreditationExpiry
+    ) external;
 }

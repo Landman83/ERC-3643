@@ -206,10 +206,21 @@ contract IdentityRegistry is IIdentityRegistry, AgentRoleUpgradeable, IRStorage 
     function registerIdentity(
         address _userAddress,
         IIdentity _identity,
-        uint16 _country
-    ) public override onlyAgent {
+        uint16 _country,
+        bool _isAccredited,
+        bool _isQualifiedIB,
+        uint256 _accreditationExpiry
+    ) external onlyAgent {
+        require(_accreditationExpiry > block.timestamp, "Invalid accreditation expiry");
+        
         _tokenIdentityStorage.addIdentityToStorage(_userAddress, _identity, _country);
+        
+        _isAccreditedInvestor[_userAddress] = _isAccredited;
+        _isQIB[_userAddress] = _isQualifiedIB;
+        _accreditationExpiry[_userAddress] = _accreditationExpiry;
+        
         emit IdentityRegistered(_userAddress, _identity);
+        emit AccreditationStatusSet(_userAddress, _isAccredited, _isQualifiedIB, _accreditationExpiry);
     }
 
     /**
@@ -217,5 +228,68 @@ contract IdentityRegistry is IIdentityRegistry, AgentRoleUpgradeable, IRStorage 
      */
     function identity(address _userAddress) public view override returns (IIdentity) {
         return _tokenIdentityStorage.storedIdentity(_userAddress);
+    }
+
+    /**
+     * @dev Sets the accreditation status for an investor
+     * @param _userAddress The address of the investor
+     * @param _isAccredited Whether the investor is an Accredited Investor
+     * @param _isQualifiedIB Whether the investor is a Qualified Institutional Buyer
+     * @param _expiryTime Unix timestamp when accreditation expires
+     */
+    function setAccreditationStatus(
+        address _userAddress,
+        bool _isAccredited,
+        bool _isQualifiedIB,
+        uint256 _expiryTime
+    ) external onlyAgent {
+        require(_userAddress != address(0), "Invalid address");
+        require(_expiryTime > block.timestamp, "Invalid expiry time");
+        
+        _isAccreditedInvestor[_userAddress] = _isAccredited;
+        _isQIB[_userAddress] = _isQualifiedIB;
+        _accreditationExpiry[_userAddress] = _expiryTime;
+        
+        emit AccreditationStatusSet(_userAddress, _isAccredited, _isQualifiedIB, _expiryTime);
+    }
+
+    /**
+     * @dev Revokes accreditation status for an investor
+     * @param _userAddress The address of the investor
+     * @param _reason Reason for revocation
+     */
+    function revokeAccreditation(
+        address _userAddress,
+        string calldata _reason
+    ) external onlyAgent {
+        require(_userAddress != address(0), "Invalid address");
+        require(_isAccreditedInvestor[_userAddress] || _isQIB[_userAddress], "Not accredited");
+        
+        _isAccreditedInvestor[_userAddress] = false;
+        _isQIB[_userAddress] = false;
+        _accreditationExpiry[_userAddress] = 0;
+        
+        emit AccreditationRevoked(_userAddress, _reason);
+    }
+
+    /**
+     * @dev Checks if an address has valid accreditation
+     * @param _userAddress The address to check
+     * @return isAccredited Whether the address is an AI
+     * @return isQIB Whether the address is a QIB
+     * @return isValid Whether the accreditation is still valid (not expired)
+     */
+    function checkAccreditation(address _userAddress) external view returns (
+        bool isAccredited,
+        bool isQIB,
+        bool isValid
+    ) {
+        uint256 expiry = _accreditationExpiry[_userAddress];
+        isValid = expiry > block.timestamp;
+        
+        if (isValid) {
+            isAccredited = _isAccreditedInvestor[_userAddress];
+            isQIB = _isQIB[_userAddress];
+        }
     }
 }
